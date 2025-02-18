@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Uploader & Scanner</title>
     <style>
-        /* Same styling as before, with minor updates */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -21,7 +20,7 @@
         }
 
         .container {
-            max-width: 400px;
+            max-width: 500px;
             margin: auto;
             background: #2c2c2c;
             padding: 20px;
@@ -75,10 +74,11 @@
             transition: width 0.3s;
         }
 
-        video, canvas {
+        #cameraCanvas {
             width: 100%;
-            border-radius: 5px;
+            height: 100%;
             display: none;
+            border: 1px solid #fff;
         }
 
         #output {
@@ -110,9 +110,12 @@
         <input type="file" id="fileInput" accept="image/*">
         <button id="uploadBtn">📤 Upload Image</button>
 
-        <video id="camera" autoplay></video>
-        <button id="captureBtn">📸 Capture from Camera</button>
-        <canvas id="canvas"></canvas>
+        <!-- Canvas to show live camera feed -->
+        <canvas id="cameraCanvas"></canvas>
+        
+        <!-- Buttons for camera control -->
+        <button id="startCameraBtn">📸 Start Camera</button>
+        <button id="captureBtn" style="display:none;">Capture</button>
 
         <div id="progressBar">
             <div id="progress"></div>
@@ -126,34 +129,24 @@
         const API_KEY = "a924cfd7713abe8806e6304ace928b1e"; // Your ImgBB API key
         const fileInput = document.getElementById("fileInput");
         const uploadBtn = document.getElementById("uploadBtn");
+        const startCameraBtn = document.getElementById("startCameraBtn");
         const captureBtn = document.getElementById("captureBtn");
-        const video = document.getElementById("camera");
-        const canvas = document.getElementById("canvas");
+        const canvas = document.getElementById("cameraCanvas");
+        const context = canvas.getContext("2d");
         const output = document.getElementById("output");
         const progress = document.getElementById("progress");
         const copyBtn = document.getElementById("copyBtn");
 
-        let cameraStream;
+        let videoStream;
 
-        // Check if the device is mobile
-        function isMobile() {
-            return /Mobi|Android/i.test(navigator.userAgent);
-        }
-
-        uploadBtn.addEventListener("click", () => {
-            if (fileInput.files.length > 0) {
-                uploadImage(fileInput.files[0]);
-            } else {
-                alert("Please select an image first.");
-            }
+        // Start the camera when clicked
+        startCameraBtn.addEventListener("click", () => {
+            startCamera();
         });
 
+        // Capture image from the canvas
         captureBtn.addEventListener("click", () => {
-            if (isMobile()) {
-                captureImage();
-            } else {
-                alert("Camera feature is only available on mobile.");
-            }
+            captureImage();
         });
 
         // Upload image to ImgBB
@@ -182,31 +175,37 @@
             .catch(error => console.error("Error:", error));
         }
 
-        // Start camera and get access
+        // Start camera and show the video feed on canvas
         function startCamera() {
-            if (isMobile()) {
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-                    .then(stream => {
-                        cameraStream = stream;
-                        video.srcObject = stream;
-                        video.style.display = "block";
-                    })
-                    .catch(error => {
-                        console.error("Error accessing camera:", error);
-                        alert("Unable to access camera.");
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                .then(stream => {
+                    videoStream = stream;
+                    const video = document.createElement("video");
+                    video.srcObject = stream;
+                    video.play();
+
+                    video.addEventListener("play", () => {
+                        canvas.style.display = "block"; // Show the canvas element
+
+                        // Draw the video feed onto the canvas at a specific interval
+                        function drawCanvas() {
+                            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            requestAnimationFrame(drawCanvas); // Repeat the drawing process
+                        }
+                        drawCanvas();
                     });
-            } else {
-                video.style.display = "none"; // Hide video on desktop
-            }
+
+                    startCameraBtn.style.display = "none"; // Hide the Start Camera button
+                    captureBtn.style.display = "block";  // Show Capture button
+                })
+                .catch(error => {
+                    console.error("Error accessing camera:", error);
+                    alert("Unable to access camera.");
+                });
         }
 
-        // Capture image from video feed
+        // Capture the image from the canvas and upload
         function captureImage() {
-            const context = canvas.getContext("2d");
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
             canvas.toBlob(blob => {
                 uploadImage(blob);
             }, "image/png");
@@ -220,11 +219,7 @@
             }).catch(err => {
                 console.error("Failed to copy: ", err);
             });
-        });
-
-        // Start camera if mobile
-        startCamera();
-
+        }
     </script>
 
 </body>
