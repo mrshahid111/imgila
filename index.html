@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Uploader & Scanner</title>
+    <style>
+     * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            text-align: center;
+            background: #1e1e1e;
+            color: white;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: auto;
+            background: #2c2c2c;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            font-size: 22px;
+            margin-bottom: 15px;
+        }
+
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 5px;
+        }
+
+        input {
+            border: 1px solid #555;
+            background: #333;
+            color: white;
+        }
+
+        button {
+            background: #28a745;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #218838;
+        }
+
+        #progressBar {
+            width: 100%;
+            height: 5px;
+            background: #444;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        #progress {
+            width: 0%;
+            height: 100%;
+            background: #28a745;
+            transition: width 0.3s;
+        }
+
+        video, canvas {
+            width: 100%;
+            border-radius: 5px;
+            display: none;
+        }
+
+        #output {
+            margin-top: 15px;
+            word-break: break-all;
+            font-size: 14px;
+        }
+
+        #copyBtn {
+            background: #007bff;
+            display: none;
+        }
+
+        #copyBtn:hover {
+            background: #0056b3;
+        }
+
+        a {
+            color: #4ddaff;
+            text-decoration: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Upload or Capture Image</h1>
+
+        <input type="file" id="fileInput" accept="image/*">
+        <button id="uploadBtn">📤 Upload Image</button>
+
+        <video id="camera" autoplay></video>
+        <button id="captureBtn">📸 Capture from Camera</button>
+        <canvas id="canvas"></canvas>
+
+        <div id="progressBar">
+            <div id="progress"></div>
+        </div>
+
+        <p id="output"></p>
+        <button id="copyBtn">📋 Copy Link</button>
+    </div>
+
+    <script>
+        const API_KEY = "a924cfd7713abe8806e6304ace928b1e"; // Your ImgBB API key
+        const fileInput = document.getElementById("fileInput");
+        const uploadBtn = document.getElementById("uploadBtn");
+        const captureBtn = document.getElementById("captureBtn");
+        const video = document.getElementById("camera");
+        const canvas = document.getElementById("canvas");
+        const output = document.getElementById("output");
+        const progress = document.getElementById("progress");
+        const copyBtn = document.getElementById("copyBtn");
+
+        // Check if the device is mobile
+        function isMobile() {
+            return /Mobi|Android/i.test(navigator.userAgent);
+        }
+
+        uploadBtn.addEventListener("click", () => {
+            if (fileInput.files.length > 0) {
+                uploadImage(fileInput.files[0]);
+            } else {
+                alert("Please select an image first.");
+            }
+        });
+
+        captureBtn.addEventListener("click", () => {
+            if (isMobile()) {
+                captureImage();
+            } else {
+                alert("Camera feature is only available on mobile.");
+            }
+        });
+
+        function uploadImage(file) {
+            const formData = new FormData();
+            formData.append("image", file);
+            formData.append("key", API_KEY);
+
+            progress.style.width = "0%"; // Reset progress
+
+            fetch("https://api.imgbb.com/1/upload", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => {
+                let total = 100;
+                let uploaded = 0;
+
+                // Simulate progress bar
+                let interval = setInterval(() => {
+                    uploaded += 10;
+                    progress.style.width = uploaded + "%";
+                    if (uploaded >= total) clearInterval(interval);
+                }, 100);
+
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    output.innerHTML = `✅ Image Uploaded: <br> 
+                    <a href="${data.data.url}" target="_blank">${data.data.url}</a>`;
+                    copyBtn.style.display = "block";
+                    copyBtn.setAttribute("data-url", data.data.url);
+                } else {
+                    alert("Upload failed!");
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+        function startCamera() {
+            if (isMobile()) {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                .then(stream => {
+                    video.style.display = "block";
+                    video.srcObject = stream;
+                })
+                .catch(error => console.error("Error accessing camera:", error));
+            } else {
+                video.style.display = "none"; // Hide video on desktop
+            }
+        }
+
+        function captureImage() {
+            const context = canvas.getContext("2d");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob(blob => {
+                uploadImage(blob);
+            }, "image/png");
+        }
+
+        // Copy URL to Clipboard
+        copyBtn.addEventListener("click", () => {
+            const url = copyBtn.getAttribute("data-url");
+            navigator.clipboard.writeText(url).then(() => {
+                alert("✅ Image URL copied!");
+            }).catch(err => {
+                console.error("Failed to copy: ", err);
+            });
+        });
+
+        // Start camera if mobile
+        startCamera();
+    </script>
+
+</body>
+</html>
