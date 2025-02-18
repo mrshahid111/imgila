@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Image Uploader & Scanner</title>
     <style>
-     * {
+        /* Same styling as before, with minor updates */
+        * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
@@ -99,7 +100,6 @@
             color: #4ddaff;
             text-decoration: none;
         }
-
     </style>
 </head>
 <body>
@@ -133,6 +133,8 @@
         const progress = document.getElementById("progress");
         const copyBtn = document.getElementById("copyBtn");
 
+        let cameraStream;
+
         // Check if the device is mobile
         function isMobile() {
             return /Mobi|Android/i.test(navigator.userAgent);
@@ -154,6 +156,7 @@
             }
         });
 
+        // Upload image to ImgBB
         function uploadImage(file) {
             const formData = new FormData();
             formData.append("image", file);
@@ -165,19 +168,7 @@
                 method: "POST",
                 body: formData
             })
-            .then(response => {
-                let total = 100;
-                let uploaded = 0;
-
-                // Simulate progress bar
-                let interval = setInterval(() => {
-                    uploaded += 10;
-                    progress.style.width = uploaded + "%";
-                    if (uploaded >= total) clearInterval(interval);
-                }, 100);
-
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     output.innerHTML = `✅ Image Uploaded: <br> 
@@ -191,19 +182,25 @@
             .catch(error => console.error("Error:", error));
         }
 
+        // Start camera and get access
         function startCamera() {
             if (isMobile()) {
                 navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-                .then(stream => {
-                    video.style.display = "block";
-                    video.srcObject = stream;
-                })
-                .catch(error => console.error("Error accessing camera:", error));
+                    .then(stream => {
+                        cameraStream = stream;
+                        video.srcObject = stream;
+                        video.style.display = "block";
+                    })
+                    .catch(error => {
+                        console.error("Error accessing camera:", error);
+                        alert("Unable to access camera.");
+                    });
             } else {
                 video.style.display = "none"; // Hide video on desktop
             }
         }
 
+        // Capture image from video feed
         function captureImage() {
             const context = canvas.getContext("2d");
             canvas.width = video.videoWidth;
@@ -227,6 +224,7 @@
 
         // Start camera if mobile
         startCamera();
+
     </script>
 
 </body>
